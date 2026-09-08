@@ -1,0 +1,143 @@
+enum Inputs : int {
+  LIMIT_TOP=6,
+  LIMIT_BOTTOM=7,
+  BUTTON_TOP=8,
+  BUTTON_BOTTOM=9,
+  BUTTON_RELEASE=10,
+  BUTTON_CONTINUE=11,
+  INPUTS_END=12,
+};
+
+enum Outputs : int {
+  L298_IN1=2,
+  L298_IN2=3,
+  L298_ENABLE=4,
+  Q_LED=5,
+  OUTPUTS_END=6,
+};
+
+const int TOP_DIR_PIN = L298_IN1;
+const int BOTTOM_DIR_PIN = L298_IN2;
+
+struct DemoControl {
+  bool bL298_IN1 = false;
+  bool bL298_IN2 = false;
+  bool bL298_ENABLE = false;
+  bool bQ_LED = false;
+
+  enum State : int {
+    RELEASED=1,
+    BRAKE=2,
+    MOVE_TOP=4,
+    MOVE_BOTTOM=8,
+    FALL=16,
+    REWIND=32
+  };
+
+  State state{RELEASED};
+  
+  bool isLimitTop() { return !digitalRead(LIMIT_TOP); }
+  bool isLimitBottom() { return !digitalRead(LIMIT_BOTTOM); }
+  bool isButtonTop() { return !digitalRead(BUTTON_TOP); }
+  bool isButtonBottom() { return !digitalRead(BUTTON_BOTTOM); }
+  bool isButtonRelease() { return !digitalRead(BUTTON_RELEASE); }
+  bool isButtonContinue() { return !digitalRead(BUTTON_CONTINUE); }
+  bool hasState(State st) {
+    return (state & st) == st;
+  }
+
+  void init() { }
+
+  void movementHalt() {
+    analogWrite(L298_IN1, 0);
+    analogWrite(L298_IN2, 0);
+    bL298_IN1 = false;
+    bL298_IN2 = false;
+  }
+
+  void setMovementState(bool enable) {
+    digitalWrite(L298_ENABLE, enable);
+    bL298_ENABLE = enable;
+  }
+
+  bool getMovementState() {
+    return bL298_ENABLE;
+  }
+
+  void movementCheck() {
+    if (hasState(RELEASED)) return;
+
+    if (isLimitTop()) {
+      movementHalt();
+    }
+
+    if (isLimitBottom()) {
+      movementHalt();
+    }
+  }
+
+  void buttonCheck() {
+    if (isButtonTop()) {
+      if (!isLimitTop()) {
+        setMovementState(true);
+        analogWrite(BOTTOM_DIR_PIN, 0);
+        analogWrite(TOP_DIR_PIN, 255);
+        state = BRAKE | MOVE_TOP;
+      }
+    } else
+    if (isButtonBottom()) {
+      if (!isLimitBottom()) {
+        setMovementState(true);
+        analogWrite(TOP_DIR_PIN, 0);
+        analogWrite(BOTTOM_DIR_PIN, 255);
+        state = BRAKE | MOVE_BOTTOM;
+      }
+    } else {
+      if (hasState(MOVE_TOP) || hasState(MOVE_BOTTOM)) {
+        analogWrite(TOP_DIR_PIN, 0);
+        analogWrite(BOTTOM_DIR_PIN, 0);
+        state = BRAKE;
+      }
+    }
+
+    if (isButtonContinue()) {
+      setMovementState(true);
+      state = BRAKE;
+    }
+
+    if (isButtonRelease()) {
+      setMovementState(false);
+      state = RELEASED;
+    }
+  }
+
+  void update() {
+    movementCheck();
+    buttonCheck();
+  }
+};
+
+DemoControl demo;
+
+void setup() {
+  Serial.begin(9600);
+  for (int i = LIMIT_TOP; i < INPUTS_END; i++)
+    pinMode(i, INPUT_PULLUP);
+  for (int i = L298_IN1; i < OUTPUTS_END; i++)
+    pinMode(i, OUTPUT);
+  demo.init();
+}
+
+void loop() {
+  demo.update();
+
+  static long prev = 0;
+
+  if (prev + 250 < millis()) {
+    prev = millis();
+    Serial.print("Inputs: ");
+    for (int i = LIMIT_TOP; i < INPUTS_END; i++)
+      Serial.print(digitalRead(i) ? 1 : 0);
+    Serial.println();
+  }
+}
