@@ -70,6 +70,7 @@ struct DemoControl {
       state = RELEASED;
     }
     digitalWrite(Q_LED, enable);
+    //analogWrite(Q_LED, enable ? 126 : 0);
     bQ_LED = enable;
   }
 
@@ -84,11 +85,11 @@ struct DemoControl {
   void movementCheck() {
     if (hasState(RELEASED)) return;
 
-    if (isLimitTop()) {
+    if (isLimitTop() && bL298_IN1) {
       movementHalt();
     }
 
-    if (isLimitBottom()) {
+    if (isLimitBottom() && bL298_IN2) { // Temporary for movement override. Will allow overrides to relieve tension.
       movementHalt();
     }
   }
@@ -129,8 +130,10 @@ struct DemoControl {
     }
 
     if (isButtonRelease()) {
-      setMovementState(false);
-      setQLEDState(true);
+      if (getMovementState())
+        setMovementState(false);
+      if (!getQLEDState())
+        setQLEDState(true);
       state = RELEASED;
     }
   }
