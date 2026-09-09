@@ -56,8 +56,25 @@ struct DemoControl {
   }
 
   void setMovementState(bool enable) {
+    if (getQLEDState()) {
+      setQLEDState(false);
+    }
     digitalWrite(L298_ENABLE, enable);
     bL298_ENABLE = enable;
+  }
+
+  void setQLEDState(bool enable) {
+    if (getMovementState() && enable) { // Disable Motor Control
+      movementHalt();
+      setMovementState(false);
+      state = RELEASED;
+    }
+    digitalWrite(Q_LED, enable);
+    bQ_LED = enable;
+  }
+
+  bool getQLEDState() {
+    return bQ_LED;
   }
 
   bool getMovementState() {
@@ -82,6 +99,8 @@ struct DemoControl {
         setMovementState(true);
         analogWrite(BOTTOM_DIR_PIN, 0);
         analogWrite(TOP_DIR_PIN, 255);
+        bL298_IN2 = false;
+        bL298_IN1 = true;
         state = BRAKE | MOVE_TOP;
       }
     } else
@@ -90,12 +109,16 @@ struct DemoControl {
         setMovementState(true);
         analogWrite(TOP_DIR_PIN, 0);
         analogWrite(BOTTOM_DIR_PIN, 255);
+        bL298_IN1 = false;
+        bL298_IN2 = true;
         state = BRAKE | MOVE_BOTTOM;
       }
     } else {
       if (hasState(MOVE_TOP) || hasState(MOVE_BOTTOM)) {
         analogWrite(TOP_DIR_PIN, 0);
         analogWrite(BOTTOM_DIR_PIN, 0);
+        bL298_IN1 = false;
+        bL298_IN2 = false;
         state = BRAKE;
       }
     }
@@ -107,6 +130,7 @@ struct DemoControl {
 
     if (isButtonRelease()) {
       setMovementState(false);
+      setQLEDState(true);
       state = RELEASED;
     }
   }
@@ -138,6 +162,16 @@ void loop() {
     Serial.print("Inputs: ");
     for (int i = LIMIT_TOP; i < INPUTS_END; i++)
       Serial.print(digitalRead(i) ? 1 : 0);
+    Serial.print(" Outputs: ");
+    bool vars[] = {
+      demo.bL298_IN1,
+      demo.bL298_IN2,
+      demo.bL298_ENABLE,
+      demo.bQ_LED
+    };
+    for (int i = 0; i < 4; i++) {
+      Serial.print(vars[i] ? 1 : 0);
+    }
     Serial.println();
   }
 }
