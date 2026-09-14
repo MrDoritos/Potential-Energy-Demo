@@ -24,7 +24,7 @@ enum class SystemMode {
 
 SystemMode currentMode = SystemMode::MANUAL;
 unsigned long unwindStartTime = 0;
-constexpr unsigned long UNWIND_DURATION_MS = 500;
+constexpr unsigned long UNWIND_DURATION_MS = 10;
 
 // Motor Brake State for Manual Coast vs Brake toggle
 bool isBraked = false;
